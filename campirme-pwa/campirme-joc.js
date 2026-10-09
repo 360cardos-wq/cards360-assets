@@ -620,6 +620,18 @@ function mostrarMapaCampirme() {
     document.getElementById("botoHeArribatCampirme").style.display = "block";
     document.getElementById("campirmeBruixolaCos").style.display = "block";
 
+    dibuixarEsferaCampirme();
+
+    const desnivell = document.getElementById("campirmeBrxDesn");
+
+    if (desnivell) {
+
+        desnivell.textContent =
+            "⛰ " + (tram.desnivellNet >= 0 ? "+" : "") +
+            tram.desnivellNet + " m";
+
+    }
+
     const desti = trobarPuntCampirme(campirmeDestiActiu);
 
     if (desti) {
@@ -722,6 +734,105 @@ function campirmeRumbDesdeEuler(alpha, beta, gamma) {
 
 }
 
+/*************************************************
+ * ESFERA DE LA BRÚIXOLA (marques, graus, cardinals)
+ *************************************************/
+const CAMPIRME_NS_SVG = "http://www.w3.org/2000/svg";
+
+function campirmeElSvg(nom, atributs, text) {
+
+    const el = document.createElementNS(CAMPIRME_NS_SVG, nom);
+
+    Object.keys(atributs).forEach(function(k) {
+        el.setAttribute(k, atributs[k]);
+    });
+
+    if (text !== undefined) {
+        el.textContent = text;
+    }
+
+    return el;
+
+}
+
+function dibuixarEsferaCampirme() {
+
+    const g = document.getElementById("campirmeEsfera");
+
+    if (!g || g.childNodes.length > 0) {
+        return;
+    }
+
+    const cx = 150, cy = 150;
+    const rad = Math.PI / 180;
+
+    for (let deg = 0; deg < 360; deg += 5) {
+
+        const gran = deg % 30 === 0;
+        const mitja = deg % 10 === 0;
+
+        const r1 = 137;
+        const r2 = gran ? 124 : (mitja ? 130 : 133);
+
+        const s = Math.sin(deg * rad);
+        const c = Math.cos(deg * rad);
+
+        g.appendChild(campirmeElSvg("line", {
+            x1: cx + r1 * s, y1: cy - r1 * c,
+            x2: cx + r2 * s, y2: cy - r2 * c,
+            stroke: deg === 0 ? "#8d1712" : "#4a3210",
+            "stroke-width": gran ? 2.6 : (mitja ? 1.6 : 1),
+            "stroke-linecap": "round"
+        }));
+
+    }
+
+    const cardinals = { 0: "N", 90: "E", 180: "S", 270: "O" };
+
+    for (let deg = 0; deg < 360; deg += 30) {
+
+        const cardinal = cardinals[deg];
+
+        const r = cardinal ? 111 : 113;
+        const x = cx + r * Math.sin(deg * rad);
+        const y = cy - r * Math.cos(deg * rad);
+
+        // El text gira amb l'esfera: cap de lletra sempre cap a fora
+        const t = campirmeElSvg("text", {
+            x: x,
+            y: y,
+            transform: "rotate(" + deg + " " + x + " " + y + ")",
+            "text-anchor": "middle",
+            "dominant-baseline": "central",
+            "font-size": cardinal ? 24 : 11,
+            "font-weight": cardinal ? 900 : 700,
+            fill: deg === 0 ? "#8d1712" : (cardinal ? "#2b1d08" : "#6b4a17")
+        }, cardinal || String(deg));
+
+        g.appendChild(t);
+
+    }
+
+}
+
+function campirmeNomRumb(graus) {
+
+    const noms = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+
+    return noms[Math.round(graus / 45) % 8];
+
+}
+
+function campirmeFormatDistancia(metres) {
+
+    if (metres >= 1000) {
+        return (metres / 1000).toFixed(2).replace(".", ",") + " km";
+    }
+
+    return Math.round(metres) + " m";
+
+}
+
 function pintarInfoGuiaCampirme() {
 
     const info = document.getElementById("campirmeGuiaGPS");
@@ -730,26 +841,36 @@ function pintarInfoGuiaCampirme() {
         return;
     }
 
-    const linies = [];
+    // Dades al centre de la brúixola
+    const dist = document.getElementById("campirmeBrxDist");
 
-    if (campirmeBruixolaPosicio) {
+    if (dist) {
 
-        const d = distanciaMetresBruixola(
-            campirmeBruixolaPosicio.lat,
-            campirmeBruixolaPosicio.lng,
-            campirmeBruixolaObjectiu.lat,
-            campirmeBruixolaObjectiu.lon
-        );
+        if (campirmeBruixolaPosicio) {
 
-        linies.push(
-            "📍 Ets a uns " + Math.round(d) +
-            " m de " + campirmeBruixolaObjectiu.nom
-        );
+            dist.textContent = campirmeFormatDistancia(
+                distanciaMetresBruixola(
+                    campirmeBruixolaPosicio.lat,
+                    campirmeBruixolaPosicio.lng,
+                    campirmeBruixolaObjectiu.lat,
+                    campirmeBruixolaObjectiu.lon
+                )
+            );
 
-        if (campirmeBruixolaPrecisioGPS && campirmeBruixolaPrecisioGPS > 40) {
-            linies.push("Precisió GPS baixa (±" + Math.round(campirmeBruixolaPrecisioGPS) + " m)");
+        }
+        else {
+
+            dist.textContent = "—";
+
         }
 
+    }
+
+    // Text sota la brúixola: destí + avisos
+    const linies = ["➜ " + campirmeBruixolaObjectiu.nom];
+
+    if (campirmeBruixolaPosicio && campirmeBruixolaPrecisioGPS && campirmeBruixolaPrecisioGPS > 40) {
+        linies.push("Precisió GPS baixa (±" + Math.round(campirmeBruixolaPrecisioGPS) + " m)");
     }
 
     if (campirmeBruixolaMissatge) {
@@ -996,26 +1117,37 @@ function gestionarOrientacioCampirme(event) {
 
 function actualitzarAgullaCampirme() {
 
-    if (!campirmeBruixolaObjectiu || campirmeBruixolaHeading === null) {
+    if (!campirmeBruixolaObjectiu) {
         return;
     }
 
-    // La rosa gira perquè la N assenyali el nord real
-    const rosa = document.getElementById("campirmeBruixolaSvg");
+    // Sense lectura del sensor, la brúixola es queda amb el nord a dalt
+    const rumb = campirmeBruixolaHeading === null ? 0 : campirmeBruixolaHeading;
+
+    // L'esfera gira perquè la N assenyali el nord real
+    const esfera = document.getElementById("campirmeEsfera");
 
     campirmeAngleRosa = campirmeAngleContinu(
         campirmeAngleRosa,
-        campirmeNormalitza360(-campirmeBruixolaHeading)
+        campirmeNormalitza360(-rumb)
     );
 
-    if (rosa) {
+    if (esfera) {
+        esfera.style.transform = "rotate(" + campirmeAngleRosa + "deg)";
+    }
 
-        rosa.style.transition = "transform .25s linear";
-        rosa.style.transform = "rotate(" + campirmeAngleRosa + "deg)";
+    const textRumb = document.getElementById("campirmeBrxRumb");
+
+    if (textRumb) {
+
+        textRumb.textContent =
+            campirmeBruixolaHeading === null
+                ? "—"
+                : Math.round(rumb) % 360 + "° " + campirmeNomRumb(rumb);
 
     }
 
-    // L'agulla (que apunta al destí) necessita la posició GPS
+    // La fletxa (que apunta al destí) necessita la posició GPS
     if (!campirmeBruixolaPosicio) {
         return;
     }
@@ -1030,18 +1162,13 @@ function actualitzarAgullaCampirme() {
 
     campirmeAngleAgulla = campirmeAngleContinu(
         campirmeAngleAgulla,
-        campirmeNormalitza360(bearing - campirmeBruixolaHeading)
+        campirmeNormalitza360(bearing - rumb)
     );
 
-    const agulla =
-        document.getElementById("campirmeAgulla");
+    const agulla = document.getElementById("campirmeAgulla");
 
     if (agulla) {
-
-        agulla.style.transform =
-            "translate(-50%,-50%) rotate(" +
-            campirmeAngleAgulla + "deg)";
-
+        agulla.style.transform = "rotate(" + campirmeAngleAgulla + "deg)";
     }
 
 }
@@ -1083,11 +1210,15 @@ function aturarGuiaGPSCampirme() {
     campirmeAngleAgulla = null;
     campirmeAngleRosa = null;
 
-    const rosa = document.getElementById("campirmeBruixolaSvg");
+    ["campirmeEsfera", "campirmeAgulla"].forEach(function(id) {
 
-    if (rosa) {
-        rosa.style.transform = "";
-    }
+        const el = document.getElementById(id);
+
+        if (el) {
+            el.style.transform = "";
+        }
+
+    });
 
 }
 
