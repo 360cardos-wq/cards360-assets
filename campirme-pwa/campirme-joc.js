@@ -587,11 +587,6 @@ function afrontarDilemaCampirme() {
 /*************************************************
  * MAPA + BRÚIXOLA REAL (gir per orientació + GPS)
  *************************************************/
-let campirmeBruixolaObjectiu = null;
-let campirmeBruixolaPosicio = null;
-let campirmeBruixolaHeading = null;
-let campirmeOrientacioActiva = false;
-
 function mostrarMapaAmbTram(tram, numeroDesti) {
 
     campirmeTramActiu = tram;
@@ -633,6 +628,147 @@ function mostrarMapaCampirme() {
 
 }
 
+/*************************************************
+ * BRÚIXOLA — estat i utilitats
+ *
+ * Es manté el model original (agulla que apunta al
+ * destí segons GPS + orientació del mòbil), però:
+ *  - només es fa servir orientació ABSOLUTA (respecte
+ *    al nord magnètic); l'orientació relativa de
+ *    Android feia saltar l'agulla entre dues lectures;
+ *  - el rumb es calcula amb compensació d'inclinació
+ *    (funciona amb el mòbil inclinat, no només pla);
+ *  - el filtre és circular (sense salt 359°→0°) i els
+ *    angles CSS són continus (l'agulla no fa voltes);
+ *  - la rosa gira perquè la N assenyali el nord real;
+ *  - es mostra l'estat de GPS/brúixola en lloc de
+ *    quedar-se en silenci.
+ *************************************************/
+let campirmeBruixolaObjectiu = null;
+let campirmeBruixolaPosicio = null;
+let campirmeBruixolaHeading = null;   // rumb filtrat (0-360) o null
+let campirmeOrientacioActiva = false;
+
+let campirmeBruixolaPrecisioGPS = null;
+let campirmeBruixolaMissatge = "";
+let campirmeBruixolaAccuracy = null;   // iOS: error en graus (-1 = sense calibrar)
+let campirmeBruixolaUltimaLectura = 0;
+let campirmeBruixolaTimerSenyal = null;
+let campirmeBruixolaRaf = false;
+let campirmeAngleAgulla = null;        // angle CSS acumulat (continu)
+let campirmeAngleRosa = null;
+
+const CAMPIRME_FILTRE_BRUIXOLA = 0.25;  // 0-1: més alt = més àgil, més nerviós
+
+function campirmeNormalitza360(a) {
+    return ((a % 360) + 360) % 360;
+}
+
+/* Diferència més curta entre dos angles, en (-180, 180] */
+function campirmeDeltaAngle(destí, origen) {
+    return ((destí - origen + 540) % 360 + 360) % 360 - 180;
+}
+
+/* Fa que 'nou' sigui el valor equivalent més proper a 'anterior' (sense salts de 360°) */
+function campirmeAngleContinu(anterior, nou) {
+
+    if (anterior === null) {
+        return nou;
+    }
+
+    return anterior + campirmeDeltaAngle(nou, anterior);
+
+}
+
+/*
+ * Rumb (0-360, sentit horari des del nord) cap on "apunta" el mòbil, a
+ * partir d'alpha/beta/gamma d'un esdeveniment ABSOLUT.
+ *  - Mòbil gairebé pla (com una brúixola): direcció de la part de dalt.
+ *  - Mòbil dret/inclinat (>45° de la horitzontal): direcció de la part
+ *    del darrere (com si apuntessis amb la càmera).
+ * Per inclinar només endavant/endarrere els dos casos coincideixen,
+ * així que el canvi no fa salts. (Fórmula W3C per al cas del darrere:
+ * és indefinida amb el mòbil pla, per això cal la part de dalt.)
+ */
+function campirmeRumbDesdeEuler(alpha, beta, gamma) {
+
+    const rad = Math.PI / 180;
+
+    const x = (beta || 0) * rad;
+    const y = (gamma || 0) * rad;
+    const z = alpha * rad;
+
+    const cX = Math.cos(x), cY = Math.cos(y), cZ = Math.cos(z);
+    const sX = Math.sin(x), sY = Math.sin(y), sZ = Math.sin(z);
+
+    let est, nord;
+
+    if (Math.abs(cX * cY) > 0.7) {
+
+        // Gairebé pla: part de dalt del mòbil
+        est = -sZ * cX;
+        nord = cZ * cX;
+
+    }
+    else {
+
+        // Dret/inclinat: part del darrere del mòbil
+        est = -cZ * sY - sZ * sX * cY;
+        nord = -sZ * sY + cZ * sX * cY;
+
+    }
+
+    return campirmeNormalitza360(Math.atan2(est, nord) / rad);
+
+}
+
+function pintarInfoGuiaCampirme() {
+
+    const info = document.getElementById("campirmeGuiaGPS");
+
+    if (!info || !campirmeBruixolaObjectiu) {
+        return;
+    }
+
+    const linies = [];
+
+    if (campirmeBruixolaPosicio) {
+
+        const d = distanciaMetresBruixola(
+            campirmeBruixolaPosicio.lat,
+            campirmeBruixolaPosicio.lng,
+            campirmeBruixolaObjectiu.lat,
+            campirmeBruixolaObjectiu.lon
+        );
+
+        linies.push(
+            "📍 Ets a uns " + Math.round(d) +
+            " m de " + campirmeBruixolaObjectiu.nom
+        );
+
+        if (campirmeBruixolaPrecisioGPS && campirmeBruixolaPrecisioGPS > 40) {
+            linies.push("Precisió GPS baixa (±" + Math.round(campirmeBruixolaPrecisioGPS) + " m)");
+        }
+
+    }
+
+    if (campirmeBruixolaMissatge) {
+        linies.push(campirmeBruixolaMissatge);
+    }
+    else if (
+        campirmeBruixolaAccuracy !== null &&
+        (campirmeBruixolaAccuracy < 0 || campirmeBruixolaAccuracy > 25)
+    ) {
+        linies.push("🧭 Calibra la brúixola movent el mòbil en forma de 8");
+    }
+
+    info.innerHTML = linies.join("<br>");
+
+}
+
+/*************************************************
+ * GUIA GPS + BRÚIXOLA
+ *************************************************/
 function iniciarGuiaGPSCampirme(puntDesti) {
 
     aturarGuiaGPSCampirme();
@@ -640,14 +776,23 @@ function iniciarGuiaGPSCampirme(puntDesti) {
     campirmeBruixolaObjectiu = puntDesti;
     campirmeBruixolaPosicio = null;
     campirmeBruixolaHeading = null;
+    campirmeBruixolaPrecisioGPS = null;
+    campirmeBruixolaAccuracy = null;
+    campirmeBruixolaMissatge = "Buscant senyal GPS...";
+    campirmeAngleAgulla = null;
+    campirmeAngleRosa = null;
 
     activarOrientacioCampirme();
 
-    if (!navigator.geolocation) {
-        return;
-    }
+    pintarInfoGuiaCampirme();
 
-    const info = document.getElementById("campirmeGuiaGPS");
+    if (!navigator.geolocation) {
+
+        campirmeBruixolaMissatge = "⚠️ Aquest dispositiu no té GPS.";
+        pintarInfoGuiaCampirme();
+        return;
+
+    }
 
     campirmeWatchGuia = navigator.geolocation.watchPosition(
 
@@ -658,28 +803,37 @@ function iniciarGuiaGPSCampirme(puntDesti) {
                 lng: pos.coords.longitude
             };
 
-            const d = distanciaMetresBruixola(
-                campirmeBruixolaPosicio.lat,
-                campirmeBruixolaPosicio.lng,
-                puntDesti.lat,
-                puntDesti.lon
-            );
+            campirmeBruixolaPrecisioGPS = pos.coords.accuracy;
 
-            if (info) {
-
-                info.innerText =
-                    "📍 Ets a uns " +
-                    Math.round(d) +
-                    " m de " + puntDesti.nom;
-
+            if (campirmeBruixolaMissatge === "Buscant senyal GPS...") {
+                campirmeBruixolaMissatge = "";
             }
+
+            pintarInfoGuiaCampirme();
 
             actualitzarAgullaCampirme();
 
         },
 
         function(err) {
+
             console.log("GPS no disponible:", err);
+
+            if (err && err.code === 1) {
+
+                campirmeBruixolaMissatge =
+                    "⚠️ GPS bloquejat. Activa la ubicació d'aquest lloc " +
+                    "a la configuració del navegador.";
+
+            }
+            else if (!campirmeBruixolaPosicio) {
+
+                campirmeBruixolaMissatge = "Buscant senyal GPS...";
+
+            }
+
+            pintarInfoGuiaCampirme();
+
         },
 
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
@@ -695,6 +849,7 @@ function activarOrientacioCampirme() {
         typeof DeviceOrientationEvent.requestPermission === "function"
     ) {
 
+        // iOS: només dins d'un gest de l'usuari (el clic d'ACTIVAR BRÚIXOLA)
         DeviceOrientationEvent.requestPermission()
 
             .then(function(resposta) {
@@ -702,11 +857,25 @@ function activarOrientacioCampirme() {
                 if (resposta === "granted") {
                     iniciarEscoltaOrientacioCampirme();
                 }
+                else {
+
+                    campirmeBruixolaMissatge =
+                        "⚠️ Permís de brúixola denegat. Tanca i obre el navegador per tornar-lo a demanar.";
+
+                    pintarInfoGuiaCampirme();
+
+                }
 
             })
 
             .catch(function(err) {
+
                 console.log("Permís de brúixola denegat:", err);
+
+                campirmeBruixolaMissatge = "⚠️ No s'ha pogut activar la brúixola.";
+
+                pintarInfoGuiaCampirme();
+
             });
 
     }
@@ -725,6 +894,7 @@ function iniciarEscoltaOrientacioCampirme() {
     }
 
     campirmeOrientacioActiva = true;
+    campirmeBruixolaUltimaLectura = 0;
 
     window.addEventListener(
         "deviceorientationabsolute",
@@ -732,54 +902,121 @@ function iniciarEscoltaOrientacioCampirme() {
         true
     );
 
+    // iOS (webkitCompassHeading) i Firefox (absolute=true) arriben per aquí.
+    // A Chrome/Android aquest esdeveniment és RELATIU i s'ignora al gestor.
     window.addEventListener(
         "deviceorientation",
         gestionarOrientacioCampirme,
         true
     );
 
+    // Si en 4 s no ha arribat cap lectura absoluta, ho diem (sensor absent o bloquejat)
+    campirmeBruixolaTimerSenyal = setTimeout(function() {
+
+        if (campirmeOrientacioActiva && campirmeBruixolaUltimaLectura === 0) {
+
+            campirmeBruixolaMissatge =
+                "⚠️ Aquest mòbil no dona la direcció del nord. " +
+                "Fes servir la distància i el mapa.";
+
+            pintarInfoGuiaCampirme();
+
+        }
+
+    }, 4000);
+
 }
 
 function gestionarOrientacioCampirme(event) {
 
-    let heading = null;
+    let rumb = null;
 
-    if (typeof event.webkitCompassHeading === "number") {
+    if (
+        typeof event.webkitCompassHeading === "number" &&
+        event.webkitCompassHeading >= 0
+    ) {
 
-        heading = event.webkitCompassHeading;
+        // iOS: ja és respecte al nord magnètic i compensat d'inclinació
+        rumb = event.webkitCompassHeading;
+
+        if (typeof event.webkitCompassAccuracy === "number") {
+            campirmeBruixolaAccuracy = event.webkitCompassAccuracy;
+        }
 
     }
     else if (
-        event.absolute === true &&
+        (event.absolute === true || event.type === "deviceorientationabsolute") &&
         typeof event.alpha === "number"
     ) {
 
-        heading = (360 - event.alpha) % 360;
-
-    }
-    else if (typeof event.alpha === "number") {
-
-        heading = (360 - event.alpha) % 360;
+        rumb = campirmeRumbDesdeEuler(event.alpha, event.beta, event.gamma);
 
     }
 
-    if (heading === null) {
+    if (rumb === null) {
         return;
     }
 
-    campirmeBruixolaHeading = heading;
+    campirmeBruixolaUltimaLectura = Date.now();
 
-    actualitzarAgullaCampirme();
+    if (campirmeBruixolaMissatge.indexOf("no dona la direcció") !== -1) {
+        campirmeBruixolaMissatge = "";
+    }
+
+    // Filtre passa-baixos circular
+    if (campirmeBruixolaHeading === null) {
+        campirmeBruixolaHeading = rumb;
+    }
+    else {
+
+        campirmeBruixolaHeading = campirmeNormalitza360(
+            campirmeBruixolaHeading +
+            CAMPIRME_FILTRE_BRUIXOLA *
+            campirmeDeltaAngle(rumb, campirmeBruixolaHeading)
+        );
+
+    }
+
+    // Màxim un repintat per fotograma
+    if (!campirmeBruixolaRaf) {
+
+        campirmeBruixolaRaf = true;
+
+        requestAnimationFrame(function() {
+
+            campirmeBruixolaRaf = false;
+
+            actualitzarAgullaCampirme();
+
+        });
+
+    }
 
 }
 
 function actualitzarAgullaCampirme() {
 
-    if (
-        !campirmeBruixolaObjectiu ||
-        !campirmeBruixolaPosicio ||
-        campirmeBruixolaHeading === null
-    ) {
+    if (!campirmeBruixolaObjectiu || campirmeBruixolaHeading === null) {
+        return;
+    }
+
+    // La rosa gira perquè la N assenyali el nord real
+    const rosa = document.getElementById("campirmeBruixolaSvg");
+
+    campirmeAngleRosa = campirmeAngleContinu(
+        campirmeAngleRosa,
+        campirmeNormalitza360(-campirmeBruixolaHeading)
+    );
+
+    if (rosa) {
+
+        rosa.style.transition = "transform .25s linear";
+        rosa.style.transform = "rotate(" + campirmeAngleRosa + "deg)";
+
+    }
+
+    // L'agulla (que apunta al destí) necessita la posició GPS
+    if (!campirmeBruixolaPosicio) {
         return;
     }
 
@@ -791,8 +1028,10 @@ function actualitzarAgullaCampirme() {
             campirmeBruixolaObjectiu.lon
         );
 
-    const rotacio =
-        (bearing - campirmeBruixolaHeading + 360) % 360;
+    campirmeAngleAgulla = campirmeAngleContinu(
+        campirmeAngleAgulla,
+        campirmeNormalitza360(bearing - campirmeBruixolaHeading)
+    );
 
     const agulla =
         document.getElementById("campirmeAgulla");
@@ -801,7 +1040,7 @@ function actualitzarAgullaCampirme() {
 
         agulla.style.transform =
             "translate(-50%,-50%) rotate(" +
-            rotacio + "deg)";
+            campirmeAngleAgulla + "deg)";
 
     }
 
@@ -828,10 +1067,27 @@ function aturarGuiaGPSCampirme() {
         true
     );
 
+    if (campirmeBruixolaTimerSenyal !== null) {
+
+        clearTimeout(campirmeBruixolaTimerSenyal);
+        campirmeBruixolaTimerSenyal = null;
+
+    }
+
     campirmeOrientacioActiva = false;
     campirmeBruixolaHeading = null;
     campirmeBruixolaPosicio = null;
     campirmeBruixolaObjectiu = null;
+    campirmeBruixolaMissatge = "";
+    campirmeBruixolaAccuracy = null;
+    campirmeAngleAgulla = null;
+    campirmeAngleRosa = null;
+
+    const rosa = document.getElementById("campirmeBruixolaSvg");
+
+    if (rosa) {
+        rosa.style.transform = "";
+    }
 
 }
 

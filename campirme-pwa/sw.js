@@ -14,7 +14,7 @@
  *             navegacions ignoren ?codi=... i serveixen index.html.
  *************************************************/
 
-const VERSIO = "2026-10-09.1";
+const VERSIO = "2026-10-09.2";
 
 const PREFIX_SHELL = "campirme-shell-";
 const PREFIX_MAPA = "campirme-mapa-";          // reservat pel mapa offline (no es toca en actualitzar)
