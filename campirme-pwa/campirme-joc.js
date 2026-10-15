@@ -193,9 +193,9 @@ function mostrarPuntCampirme(numero) {
 
     campirmePuntActual = punt;
 
-    actualitzarProgresCampirme(numero);
+    actualitzarProgresCampirme(punt.progres || numero);
 
-    document.getElementById("campirmeNom").innerText = punt.nom;
+    document.getElementById("campirmeNom").innerText = punt.titol || punt.nom;
 
     document.getElementById("campirmeHistoria").innerHTML =
         convertirText(punt.historia);
@@ -227,7 +227,10 @@ function mostrarPuntCampirme(numero) {
 
     if (punt.tramSeguent) {
 
-        mostrarMapaAmbTram(punt.tramSeguent, punt.numero + 1);
+        mostrarMapaAmbTram(
+            punt.tramSeguent,
+            punt.destiSeguent || (punt.numero + 1)
+        );
         return;
 
     }
@@ -507,7 +510,7 @@ function mostrarDilemaCampirme(punt) {
 
 }
 
-function continuarDilemaCampirme(tram) {
+function continuarDilemaCampirme(tram, destiNumero) {
 
     document.getElementById("campirmeDilemaWrap").style.display = "none";
 
@@ -520,6 +523,7 @@ function continuarDilemaCampirme(tram) {
          * encallat.
          */
         tram = campirmePuntActual.dilema.renunciar.tram;
+        destiNumero = campirmePuntActual.dilema.renunciar.destiNumero;
 
     }
 
@@ -530,7 +534,7 @@ function continuarDilemaCampirme(tram) {
         null,
 
         function() {
-            mostrarMapaAmbTram(tram, 9);
+            mostrarMapaAmbTram(tram, destiNumero || 9);
         },
 
         {
@@ -546,7 +550,8 @@ function continuarDilemaCampirme(tram) {
 function renunciarDilemaCampirme() {
 
     continuarDilemaCampirme(
-        campirmePuntActual.dilema.renunciar.tram
+        campirmePuntActual.dilema.renunciar.tram,
+        campirmePuntActual.dilema.renunciar.destiNumero
     );
 
 }
@@ -579,7 +584,8 @@ function afrontarDilemaCampirme() {
     }
 
     continuarDilemaCampirme(
-        campirmePuntActual.dilema.afrontar.tram
+        campirmePuntActual.dilema.afrontar.tram,
+        campirmePuntActual.dilema.afrontar.destiNumero
     );
 
 }
