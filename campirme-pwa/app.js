@@ -332,6 +332,7 @@ function dibuixarPreguntesPetjades(
             ? `
                 <div class="petjada-bonus-cap">
                     💎 BONUS
+                    <span class="petjada-bonus-temps">⏱️−${Number(preguntaActiva.bonusMin || 0)} min | ⏱️+${Number(preguntaActiva.penalitzacioMin || 0)} min</span>
                 </div>
             `
             : "";

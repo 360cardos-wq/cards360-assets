@@ -150,13 +150,13 @@
 
         <div id="campirmePreguntesWrap" class="card" style="display:none;">
 
-            <details id="campirmeBonusInfoPanel" class="panel" style="display:none;">
-
-                <summary>💎 Bonus</summary>
-
-                <div id="campirmeBonusInfoText" class="bonus"></div>
-
-            </details>
+            <!-- Brúixola lliure (sense fletxa) per a les preguntes d'azimut -->
+            <div id="campirmeBruixolaLliureHolder" style="display:none;">
+                <div id="campirmeBruixolaLliureInfo" class="missio-numero"></div>
+                <button type="button" id="botoActivarBruixolaLliure" style="display:none;">
+                    🧭 ACTIVAR BRÚIXOLA
+                </button>
+            </div>
 
             <div id="preguntesCampirme"></div>
 
@@ -204,6 +204,12 @@
 
         <div id="campirmeMapaWrap" class="card" style="display:none;">
 
+            <div id="campirmeDestiBanner" class="campirme-desti" style="display:none;">
+                <div class="campirme-desti-etiqueta">➜ ANEM CAP A</div>
+                <div id="campirmeDestiNom" class="campirme-desti-nom"></div>
+                <div id="campirmeDestiAlt" class="campirme-desti-alt"></div>
+            </div>
+
             <div id="campirmeBruixolaCos" class="campirme-brux" style="display:none;">
 
                 <svg id="campirmeBruixolaSvg" class="campirme-brux-svg" viewBox="0 0 300 300" role="img" aria-label="Brúixola">
@@ -242,7 +248,7 @@
                     <!-- Dades al centre (no giren) -->
                     <text id="campirmeBrxRumb" x="150" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="#6b4a17">—</text>
                     <text id="campirmeBrxDist" x="150" y="156" text-anchor="middle" font-size="26" font-weight="900" fill="#2b1d08">—</text>
-                    <text x="150" y="171" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="2" fill="#6b4a17">DISTÀNCIA</text>
+                    <text id="campirmeBrxEtiqueta" x="150" y="171" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="2" fill="#6b4a17">DISTÀNCIA</text>
                     <text id="campirmeBrxDesn" x="150" y="192" text-anchor="middle" font-size="14" font-weight="800" fill="#2b1d08"></text>
 
                 </svg>

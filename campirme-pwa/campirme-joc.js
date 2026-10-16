@@ -200,6 +200,9 @@ function mostrarPuntCampirme(numero) {
     document.getElementById("campirmeHistoria").innerHTML =
         convertirText(punt.historia);
 
+    // Cada punt nou comença amb la Història oberta
+    document.getElementById("campirmeHistoriaPanel").open = true;
+
     document.getElementById("campirmePreguntesWrap").style.display = "none";
     document.getElementById("campirmeDilemaWrap").style.display = "none";
     document.getElementById("campirmeMapaWrap").style.display = "none";
@@ -268,33 +271,23 @@ function mostrarPreguntesCampirme(punt) {
         primeraPendent ? primeraPendent.id : null
     );
 
-    const panelBonus =
-        document.getElementById("campirmeBonusInfoPanel");
-
     const botoSaltar =
         document.getElementById("botoSaltarBonusCampirme");
 
     if (primeraPendent && primeraPendent.tipus === "bonus") {
-
-        panelBonus.style.display = "block";
-
-        document.getElementById("campirmeBonusInfoText").innerHTML =
-            "Si l'encertes, guanyes <strong>" +
-            (primeraPendent.bonusMin || 0) +
-            " min</strong>. Cada resposta incorrecta et " +
-            "suma <strong>+" +
-            (primeraPendent.penalitzacioMin || 0) +
-            " min</strong> — pots tornar a provar-ho tantes " +
-            "vegades com vulguis.";
 
         botoSaltar.style.display = "block";
 
     }
     else {
 
-        panelBonus.style.display = "none";
         botoSaltar.style.display = "none";
 
+    }
+
+    // Preguntes d'azimut/rumb: brúixola lliure, sense fletxa de navegació
+    if (primeraPendent && primeraPendent.bruixolaLliure) {
+        iniciarBruixolaLliureCampirme();
     }
 
 }
@@ -600,6 +593,21 @@ function mostrarMapaAmbTram(tram, numeroDesti) {
 
     document.getElementById("campirmeMapaWrap").style.display = "block";
 
+    const destiPunt = trobarPuntCampirme(numeroDesti);
+
+    if (destiPunt) {
+
+        document.getElementById("campirmeDestiNom").innerText = destiPunt.nom;
+
+        document.getElementById("campirmeDestiAlt").innerText =
+            destiPunt.altitud
+                ? "⛰ " + String(destiPunt.altitud).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " m"
+                : "";
+
+        document.getElementById("campirmeDestiBanner").style.display = "block";
+
+    }
+
     document.getElementById("botoObtenirMapaCampirme").style.display = "block";
     document.getElementById("botoHeArribatCampirme").style.display = "none";
 
@@ -625,6 +633,9 @@ function mostrarMapaCampirme() {
     document.getElementById("botoObtenirMapaCampirme").style.display = "none";
     document.getElementById("botoHeArribatCampirme").style.display = "block";
     document.getElementById("campirmeBruixolaCos").style.display = "block";
+
+    // La Història del punt anterior es plega (el jugador la pot tornar a obrir)
+    document.getElementById("campirmeHistoriaPanel").open = false;
 
     dibuixarEsferaCampirme();
 
@@ -675,6 +686,7 @@ let campirmeBruixolaTimerSenyal = null;
 let campirmeBruixolaRaf = false;
 let campirmeAngleAgulla = null;        // angle CSS acumulat (continu)
 let campirmeAngleRosa = null;
+let campirmeModeLliure = false;        // brúixola sense fletxa (preguntes d'azimut)
 
 const CAMPIRME_FILTRE_BRUIXOLA = 0.25;  // 0-1: més alt = més àgil, més nerviós
 
@@ -841,6 +853,33 @@ function campirmeFormatDistancia(metres) {
 
 function pintarInfoGuiaCampirme() {
 
+    if (campirmeModeLliure) {
+
+        const infoLliure =
+            document.getElementById("campirmeBruixolaLliureInfo");
+
+        if (infoLliure) {
+
+            if (campirmeBruixolaMissatge) {
+                infoLliure.innerHTML = campirmeBruixolaMissatge;
+            }
+            else if (
+                campirmeBruixolaAccuracy !== null &&
+                (campirmeBruixolaAccuracy < 0 || campirmeBruixolaAccuracy > 25)
+            ) {
+                infoLliure.innerHTML =
+                    "🧭 Calibra la brúixola movent el mòbil en forma de 8";
+            }
+            else {
+                infoLliure.innerHTML = "";
+            }
+
+        }
+
+        return;
+
+    }
+
     const info = document.getElementById("campirmeGuiaGPS");
 
     if (!info || !campirmeBruixolaObjectiu) {
@@ -873,7 +912,7 @@ function pintarInfoGuiaCampirme() {
     }
 
     // Text sota la brúixola: destí + avisos
-    const linies = ["➜ " + campirmeBruixolaObjectiu.nom];
+    const linies = [];
 
     if (campirmeBruixolaPosicio && campirmeBruixolaPrecisioGPS && campirmeBruixolaPrecisioGPS > 40) {
         linies.push("Precisió GPS baixa (±" + Math.round(campirmeBruixolaPrecisioGPS) + " m)");
@@ -1023,6 +1062,12 @@ function iniciarEscoltaOrientacioCampirme() {
     campirmeOrientacioActiva = true;
     campirmeBruixolaUltimaLectura = 0;
 
+    const botoIos = document.getElementById("botoActivarBruixolaLliure");
+
+    if (botoIos) {
+        botoIos.style.display = "none";
+    }
+
     window.addEventListener(
         "deviceorientationabsolute",
         gestionarOrientacioCampirme,
@@ -1043,8 +1088,10 @@ function iniciarEscoltaOrientacioCampirme() {
         if (campirmeOrientacioActiva && campirmeBruixolaUltimaLectura === 0) {
 
             campirmeBruixolaMissatge =
-                "⚠️ Aquest mòbil no dona la direcció del nord. " +
-                "Fes servir la distància i el mapa.";
+                campirmeModeLliure
+                    ? "⚠️ Aquest mòbil no dona la direcció del nord."
+                    : "⚠️ Aquest mòbil no dona la direcció del nord. " +
+                      "Fes servir la distància i el mapa.";
 
             pintarInfoGuiaCampirme();
 
@@ -1144,6 +1191,33 @@ function actualitzarAgullaCampirme() {
 
     const textRumb = document.getElementById("campirmeBrxRumb");
 
+    if (campirmeModeLliure) {
+
+        // Mode lliure: només els graus (azimut) al centre, sense fletxa
+        const textGraus = document.getElementById("campirmeBrxDist");
+
+        if (textGraus) {
+
+            textGraus.textContent =
+                campirmeBruixolaHeading === null
+                    ? "—"
+                    : (Math.round(rumb) % 360) + "°";
+
+        }
+
+        if (textRumb) {
+
+            textRumb.textContent =
+                campirmeBruixolaHeading === null
+                    ? "—"
+                    : campirmeNomRumb(rumb);
+
+        }
+
+        return;
+
+    }
+
     if (textRumb) {
 
         textRumb.textContent =
@@ -1207,6 +1281,10 @@ function aturarGuiaGPSCampirme() {
 
     }
 
+    if (campirmeModeLliure) {
+        sortirBruixolaLliureCampirme();
+    }
+
     campirmeOrientacioActiva = false;
     campirmeBruixolaHeading = null;
     campirmeBruixolaPosicio = null;
@@ -1225,6 +1303,95 @@ function aturarGuiaGPSCampirme() {
         }
 
     });
+
+}
+
+/*************************************************
+ * BRÚIXOLA LLIURE (preguntes d'azimut / rumb)
+ *
+ * Mateixa brúixola, però sense fletxa de navegació ni
+ * GPS: el jugador apunta amb el mòbil i llegeix els
+ * graus al centre. La brúixola es mou temporalment
+ * dins de la targeta de la pregunta.
+ *************************************************/
+function iniciarBruixolaLliureCampirme() {
+
+    const holder = document.getElementById("campirmeBruixolaLliureHolder");
+    const cos = document.getElementById("campirmeBruixolaCos");
+
+    if (!holder || !cos) {
+        return;
+    }
+
+    campirmeModeLliure = true;
+
+    holder.insertBefore(cos, holder.firstChild);
+    holder.style.display = "block";
+    cos.style.display = "block";
+
+    document.getElementById("campirmeAgulla").style.display = "none";
+    document.getElementById("campirmeBrxDesn").style.display = "none";
+    document.getElementById("campirmeBrxEtiqueta").textContent = "AZIMUT";
+    document.getElementById("campirmeBrxDist").textContent = "—";
+
+    dibuixarEsferaCampirme();
+
+    campirmeBruixolaObjectiu = { nom: "", lliure: true };
+    campirmeBruixolaHeading = null;
+    campirmeBruixolaMissatge = "";
+    campirmeBruixolaAccuracy = null;
+    campirmeAngleRosa = null;
+
+    const boto = document.getElementById("botoActivarBruixolaLliure");
+
+    if (
+        typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+
+        // iOS: el permís només es pot demanar amb un toc del jugador
+        boto.style.display = "block";
+        boto.onclick = activarOrientacioCampirme;
+
+    }
+    else {
+
+        boto.style.display = "none";
+
+    }
+
+    activarOrientacioCampirme();
+
+    pintarInfoGuiaCampirme();
+
+}
+
+function sortirBruixolaLliureCampirme() {
+
+    campirmeModeLliure = false;
+
+    const holder = document.getElementById("campirmeBruixolaLliureHolder");
+    const cos = document.getElementById("campirmeBruixolaCos");
+    const mapa = document.getElementById("campirmeMapaWrap");
+
+    if (cos && mapa) {
+
+        mapa.insertBefore(cos, mapa.firstChild);
+        cos.style.display = "none";
+
+    }
+
+    if (holder) {
+        holder.style.display = "none";
+    }
+
+    const agulla = document.getElementById("campirmeAgulla");
+    const desn = document.getElementById("campirmeBrxDesn");
+    const etiqueta = document.getElementById("campirmeBrxEtiqueta");
+
+    if (agulla) { agulla.style.display = ""; }
+    if (desn) { desn.style.display = ""; }
+    if (etiqueta) { etiqueta.textContent = "DISTÀNCIA"; }
 
 }
 
