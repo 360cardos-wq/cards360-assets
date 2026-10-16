@@ -80,7 +80,7 @@ function configurarPartidaCampirme(estat) {
 
         activitat: {
             id: "Campirme",
-            nom: "Els Camins del Bestiar: Repte Campirme",
+            nom: "Repte Campirme",
             icona: "🏔️"
         },
 
@@ -202,6 +202,10 @@ function mostrarPuntCampirme(numero) {
 
     // Cada punt nou comença amb la Història oberta
     document.getElementById("campirmeHistoriaPanel").open = true;
+
+    // El punt del dilema no té bloc d'Història
+    document.getElementById("campirmeHistoriaCard").style.display =
+        punt.dilema ? "none" : "block";
 
     document.getElementById("campirmePreguntesWrap").style.display = "none";
     document.getElementById("campirmeDilemaWrap").style.display = "none";
@@ -472,23 +476,33 @@ function mostrarPopupPuntCompletatCampirme(punt) {
  *************************************************/
 function mostrarDilemaCampirme(punt) {
 
+    const d = punt.dilema;
+
     document.getElementById("campirmeDilemaWrap").style.display = "block";
 
+    document.getElementById("campirmeDilemaTitol").innerText = d.titol || "";
+
     document.getElementById("campirmeDilemaText").innerHTML =
-        convertirText(punt.dilema.historia);
+        convertirText(d.intro);
 
-    document.getElementById(
-        "campirmeDilemaRenunciarText"
-    ).innerText = punt.dilema.renunciar.etiqueta;
+    document.getElementById("campirmeDilemaNota").innerText = d.nota || "";
 
-    document.getElementById(
-        "campirmeDilemaAfrontarText"
-    ).innerText = punt.dilema.afrontar.etiqueta;
+    [["Afrontar", d.afrontar], ["Renunciar", d.renunciar]].forEach(function(par) {
+
+        const o = par[1];
+
+        document.getElementById("cdo" + par[0] + "Titol").innerText = o.titol || "";
+        document.getElementById("cdo" + par[0] + "Dades").innerText = o.dades || "";
+        document.getElementById("cdo" + par[0] + "Temps").innerText = o.temps || "";
+        document.getElementById("cdo" + par[0] + "Desc").innerText = o.descripcio || "";
+        document.getElementById("cdo" + par[0] + "Mapa").innerText = o.mapa || "";
+
+    });
 
     const botoAfrontar =
         document.getElementById("botoAfrontarDilemaCampirme");
 
-    if (punt.dilema.afrontar.disponible === false) {
+    if (d.afrontar.disponible === false) {
 
         botoAfrontar.disabled = true;
         botoAfrontar.style.opacity = ".5";
@@ -629,6 +643,8 @@ function mostrarMapaCampirme() {
         tram.distanciaKm + " km · " +
         (tram.desnivellNet >= 0 ? "+" : "") +
         tram.desnivellNet + " m";
+
+    preparaAudioCampirme();
 
     document.getElementById("botoObtenirMapaCampirme").style.display = "none";
     document.getElementById("botoHeArribatCampirme").style.display = "block";
@@ -939,6 +955,8 @@ function iniciarGuiaGPSCampirme(puntDesti) {
 
     aturarGuiaGPSCampirme();
 
+    campirmeArribadaAutoFeta = false;
+
     campirmeBruixolaObjectiu = puntDesti;
     campirmeBruixolaPosicio = null;
     campirmeBruixolaHeading = null;
@@ -978,6 +996,8 @@ function iniciarGuiaGPSCampirme(puntDesti) {
             pintarInfoGuiaCampirme();
 
             actualitzarAgullaCampirme();
+
+            comprovarArribadaAutomaticaCampirme(pos);
 
         },
 
@@ -1392,6 +1412,113 @@ function sortirBruixolaLliureCampirme() {
     if (agulla) { agulla.style.display = ""; }
     if (desn) { desn.style.display = ""; }
     if (etiqueta) { etiqueta.textContent = "DISTÀNCIA"; }
+
+}
+
+/*************************************************
+ * ARRIBADA AUTOMÀTICA (radi de 50 m)
+ *
+ * El botó HE ARRIBAT es manté. A més, si el GPS detecta
+ * que el jugador és a menys de 50 m del punt (i la
+ * precisió del GPS és acceptable), salta sol al punt
+ * amb vibració i un so curt.
+ *************************************************/
+const CAMPIRME_RADI_ARRIBADA = 50;
+
+let campirmeAudioCtx = null;
+let campirmeArribadaAutoFeta = false;
+
+/* Cal crear/activar l'àudio amb un toc del jugador (ACTIVAR BRÚIXOLA) */
+function preparaAudioCampirme() {
+
+    try {
+
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+
+        if (!Ctx) { return; }
+
+        if (!campirmeAudioCtx) {
+            campirmeAudioCtx = new Ctx();
+        }
+
+        if (campirmeAudioCtx.state === "suspended") {
+            campirmeAudioCtx.resume();
+        }
+
+    }
+    catch (e) { }
+
+}
+
+function sonArribadaCampirme() {
+
+    try {
+
+        if (!campirmeAudioCtx) { return; }
+
+        const t0 = campirmeAudioCtx.currentTime;
+
+        [[660, 0], [880, 0.18], [1320, 0.36]].forEach(function(n) {
+
+            const osc = campirmeAudioCtx.createOscillator();
+            const gain = campirmeAudioCtx.createGain();
+
+            osc.type = "sine";
+            osc.frequency.value = n[0];
+
+            gain.gain.setValueAtTime(0.0001, t0 + n[1]);
+            gain.gain.exponentialRampToValueAtTime(0.5, t0 + n[1] + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + 0.3);
+
+            osc.connect(gain);
+            gain.connect(campirmeAudioCtx.destination);
+
+            osc.start(t0 + n[1]);
+            osc.stop(t0 + n[1] + 0.32);
+
+        });
+
+    }
+    catch (e) { }
+
+}
+
+function comprovarArribadaAutomaticaCampirme(pos) {
+
+    if (
+        campirmeArribadaAutoFeta ||
+        campirmeModeLliure ||
+        !campirmeBruixolaObjectiu ||
+        typeof campirmeBruixolaObjectiu.lat !== "number"
+    ) {
+        return;
+    }
+
+    const precisio = pos.coords.accuracy || 0;
+
+    const d = distanciaMetresCampirme(
+        pos.coords.latitude,
+        pos.coords.longitude,
+        campirmeBruixolaObjectiu.lat,
+        campirmeBruixolaObjectiu.lon
+    );
+
+    if (d <= CAMPIRME_RADI_ARRIBADA && precisio <= CAMPIRME_RADI_ARRIBADA) {
+
+        campirmeArribadaAutoFeta = true;
+
+        try {
+            if (navigator.vibrate) {
+                navigator.vibrate([300, 120, 300, 120, 600]);
+            }
+        }
+        catch (e) { }
+
+        sonArribadaCampirme();
+
+        heArribatCampirme();
+
+    }
 
 }
 

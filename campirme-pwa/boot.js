@@ -193,7 +193,7 @@ function gateComencar(codi) {
 function mostrarGate(codi) {
 
     $("loading").style.display = "none";
-    $("gate").style.display = "block";
+    $("gate").style.display = "flex";
 
     gateAplicacio();
     gatePaquetContingut(codi);

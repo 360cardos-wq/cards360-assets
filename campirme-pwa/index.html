@@ -134,7 +134,7 @@
 
     <div id="campirmeContingut" style="display:none;">
 
-        <div class="card">
+        <div class="card" id="campirmeHistoriaCard">
 
             <h1 id="campirmeNom"></h1>
 
@@ -179,26 +179,51 @@
 
         <div id="campirmeDilemaWrap" class="petjada-dilema" style="display:none;">
 
-            <div class="petjada-dilema-icona">🥾</div>
+            <div class="petjada-dilema-alerta">
+                <div class="petjada-dilema-alerta-icona">⚠️</div>
+            </div>
 
-            <div class="petjada-dilema-titol">TRIA EL CAMÍ</div>
+            <div class="petjada-dilema-banner">
+                <span class="petjada-dilema-titol">DILEMA</span>
+            </div>
+
+            <div class="petjada-dilema-subtitol">
+                <span>DECISIÓ IMPORTANT</span>
+            </div>
+
+            <div id="campirmeDilemaTitol" class="campirme-dilema-titol"></div>
 
             <div id="campirmeDilemaText" class="petjada-dilema-text"></div>
 
             <div class="petjada-dilema-botons">
 
-                <button type="button" onclick="renunciarDilemaCampirme()">
-                    🗺️ <span id="campirmeDilemaRenunciarText"></span>
+                <button
+                    type="button"
+                    id="botoAfrontarDilemaCampirme"
+                    class="campirme-dilema-opcio campirme-dilema-linia"
+                    onclick="afrontarDilemaCampirme()">
+                    <span class="cdo-titol" id="cdoAfrontarTitol"></span>
+                    <span class="cdo-dades" id="cdoAfrontarDades"></span>
+                    <span class="cdo-temps" id="cdoAfrontarTemps"></span>
+                    <span class="cdo-desc" id="cdoAfrontarDesc"></span>
+                    <span class="cdo-mapa">🗺️ <span id="cdoAfrontarMapa"></span> →</span>
                 </button>
 
                 <button
                     type="button"
-                    id="botoAfrontarDilemaCampirme"
-                    onclick="afrontarDilemaCampirme()">
-                    ⛰️ <span id="campirmeDilemaAfrontarText"></span>
+                    id="botoRenunciarDilemaCampirme"
+                    class="campirme-dilema-opcio campirme-dilema-pastors"
+                    onclick="renunciarDilemaCampirme()">
+                    <span class="cdo-titol" id="cdoRenunciarTitol"></span>
+                    <span class="cdo-dades" id="cdoRenunciarDades"></span>
+                    <span class="cdo-temps" id="cdoRenunciarTemps"></span>
+                    <span class="cdo-desc" id="cdoRenunciarDesc"></span>
+                    <span class="cdo-mapa">🗺️ <span id="cdoRenunciarMapa"></span> →</span>
                 </button>
 
             </div>
+
+            <div id="campirmeDilemaNota" class="campirme-dilema-nota"></div>
 
         </div>
 
