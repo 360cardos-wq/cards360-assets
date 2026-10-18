@@ -60,6 +60,7 @@
 
             <div class="gate-fila"><span class="gate-icona" id="gIcoApp">⏳</span><span class="gate-text">Aplicació guardada al mòbil<span class="gate-detall" id="gDetApp"></span></span></div>
             <div class="gate-fila"><span class="gate-icona" id="gIcoPaquet">⏳</span><span class="gate-text">Contingut de l'activitat<span class="gate-detall" id="gDetPaquet"></span></span><button type="button" id="gReintentar" style="display:none;">Reintentar</button></div>
+            <div class="gate-fila"><span class="gate-icona" id="gIcoMapa">⚪</span><span class="gate-text">Mapa de la ruta<span class="gate-detall" id="gDetMapa"></span></span><button type="button" id="gMapaReintentar" style="display:none;">Reintentar</button></div>
             <div class="gate-fila"><span class="gate-icona" id="gIcoPersist">⏳</span><span class="gate-text">Memòria protegida<span class="gate-detall" id="gDetPersist"></span></span></div>
             <div class="gate-fila"><span class="gate-icona" id="gIcoGps">⚪</span><span class="gate-text">GPS<span class="gate-detall" id="gDetGps"></span></span><button type="button" id="gBotoGps">Activar</button></div>
             <div class="gate-fila"><span class="gate-icona" id="gIcoBrux">⚪</span><span class="gate-text">Brúixola<span class="gate-detall" id="gDetBrux"></span></span><button type="button" id="gBotoBrux">Activar</button></div>
@@ -284,11 +285,38 @@
 
             <div id="campirmeGuiaGPS" class="missio-numero"></div>
 
+            <!-- Mapa cartogràfic offline (vegeu campirme-mapa.js) -->
+            <div id="campirmeMapaVisor" class="campirme-mapa" style="display:none;">
+                <canvas id="campirmeMapaCanvas"></canvas>
+                <div class="cm-ctrl">
+                    <button type="button" id="cmZoomMes" aria-label="Apropar">＋</button>
+                    <button type="button" id="cmZoomMenys" aria-label="Allunyar">−</button>
+                    <button type="button" id="cmAjusta" aria-label="Veure tot el tram">⤢</button>
+                    <button type="button" id="cmCentra" aria-label="Seguir-me">📍</button>
+                    <button type="button" id="cmRumb" aria-label="Orientar segons el meu rumb">🧭</button>
+                    <button type="button" id="cmNord" aria-label="Nord amunt"><span id="cmNordIcona">N</span></button>
+                    <button type="button" id="cmFull" aria-label="Pantalla completa">⛶</button>
+                </div>
+                <div id="cmEscala" class="cm-escala"></div>
+                <div id="cmAtribucio" class="cm-atrib"></div>
+                <div id="cmAvis" class="cm-avis" style="display:none;"></div>
+            </div>
+
             <button
                 type="button"
                 id="botoObtenirMapaCampirme"
                 onclick="mostrarMapaCampirme()">
                 🧭 ACTIVAR BRÚIXOLA
+            </button>
+
+            <button
+                type="button"
+                id="botoMapaCampirme"
+                style="display:none;"
+                onclick="obtenirMapaCampirme()">
+                <span id="botoMapaText">🗺️ OBTENIR MAPA</span>
+                <span id="botoMapaSep"> | </span>
+                <span id="botoMapaCost" class="bonus-perd"></span>
             </button>
 
             <button
@@ -323,6 +351,7 @@
 <script src="gs-shim.js"></script>
 <script src="app.js"></script>
 <script src="campirme-offline.js"></script>
+<script src="campirme-mapa.js"></script>
 <script src="campirme-joc.js"></script>
 <script src="boot.js"></script>
 </body>

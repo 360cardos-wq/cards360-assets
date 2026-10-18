@@ -183,6 +183,8 @@ function totesPreguntesResoltesCampirme(punt) {
  *************************************************/
 function mostrarPuntCampirme(numero) {
 
+    tancarMapaCampirme();
+
     aturarGuiaGPSCampirme();
 
     const punt = trobarPuntCampirme(numero);
@@ -625,6 +627,9 @@ function mostrarMapaAmbTram(tram, numeroDesti) {
     document.getElementById("botoObtenirMapaCampirme").style.display = "block";
     document.getElementById("botoHeArribatCampirme").style.display = "none";
 
+    tancarMapaCampirme();
+    actualitzarBotoMapaCampirme();
+
     document.getElementById("campirmeBruixolaCos").style.display = "none";
     document.getElementById("campirmeMapaInfo").innerText = "";
     document.getElementById("campirmeGuiaGPS").innerText = "";
@@ -997,6 +1002,8 @@ function iniciarGuiaGPSCampirme(puntDesti) {
 
             actualitzarAgullaCampirme();
 
+            mapaActualitzaJugador();
+
             comprovarArribadaAutomaticaCampirme(pos);
 
         },
@@ -1189,6 +1196,9 @@ function gestionarOrientacioCampirme(event) {
 }
 
 function actualitzarAgullaCampirme() {
+
+    // El mapa (si és obert) comparteix la lectura de GPS i de rumb
+    mapaActualitzaJugador();
 
     if (!campirmeBruixolaObjectiu) {
         return;
@@ -1519,6 +1529,149 @@ function comprovarArribadaAutomaticaCampirme(pos) {
         heArribatCampirme();
 
     }
+
+}
+
+/*************************************************
+ * MAPA CARTOGRÀFIC (opció de pagament per tram)
+ *
+ *  - "OBTENIR MAPA | ⏱️+X min": X = mapaPenalitzacioMin del punt
+ *    d'ORIGEN del tram (P1-P5: 5 min; P6, P7, P8 i Mont Caubo: 0).
+ *  - La penalització s'aplica UNA sola vegada per tram (queda
+ *    desada a progres.mapes["origen>destí"]): obrir/tancar o
+ *    refrescar no la repeteix.
+ *  - El mapa només existeix dins la pantalla del tram; en canviar
+ *    de punt es tanca i al tram següent cal tornar-lo a obtenir.
+ *************************************************/
+function clauMapaTramCampirme() {
+    return campirmePuntActual.numero + ">" + campirmeDestiActiu;
+}
+
+function mapaTramObtingutCampirme() {
+
+    const estat = llegirEstatCampirme(campirmeCodiActiu);
+
+    return !!(estat && estat.progres.mapes && estat.progres.mapes[clauMapaTramCampirme()]);
+
+}
+
+function actualitzarBotoMapaCampirme() {
+
+    const boto = document.getElementById("botoMapaCampirme");
+
+    // Només es mostra si la cartografia s'ha descarregat al mòbil
+    if (!mapaDescarregat() || !campirmePuntActual) {
+        boto.style.display = "none";
+        return;
+    }
+
+    boto.style.display = "block";
+
+    const obert =
+        document.getElementById("campirmeMapaVisor").style.display !== "none";
+
+    const cost = document.getElementById("botoMapaCost");
+    const sep = document.getElementById("botoMapaSep");
+    const text = document.getElementById("botoMapaText");
+
+    if (obert) {
+
+        text.innerText = "🗺️ TANCAR MAPA";
+        sep.style.display = "none";
+        cost.style.display = "none";
+
+    }
+    else if (mapaTramObtingutCampirme()) {
+
+        text.innerText = "🗺️ OBRIR MAPA";
+        sep.style.display = "none";
+        cost.style.display = "none";
+
+    }
+    else {
+
+        const min = Number(campirmePuntActual.mapaPenalitzacioMin || 0);
+
+        text.innerText = "🗺️ OBTENIR MAPA";
+        sep.style.display = "inline";
+        cost.style.display = "inline";
+        cost.innerText = "⏱️+" + min + " min";
+        cost.className = min > 0 ? "bonus-perd" : "bonus-guany";
+
+    }
+
+}
+
+function obtenirMapaCampirme() {
+
+    const visor = document.getElementById("campirmeMapaVisor");
+
+    // Mapa obert → tancar (sense cost)
+    if (visor.style.display !== "none") {
+
+        tancarMapaCampirme();
+        actualitzarBotoMapaCampirme();
+        return;
+
+    }
+
+    const estat = llegirEstatCampirme(campirmeCodiActiu);
+    const clau = clauMapaTramCampirme();
+
+    estat.progres.mapes = estat.progres.mapes || {};
+
+    if (!estat.progres.mapes[clau]) {
+
+        const min = Number(campirmePuntActual.mapaPenalitzacioMin || 0);
+
+        if (min > 0) {
+
+            estat.progres.minutsAcumulats -= min;
+
+            estat.cua.push({
+                id: nouIdEsdeveniment(),
+                tipus: "ajustTemps",
+                minuts: -min
+            });
+
+        }
+
+        estat.progres.mapes[clau] = true;
+
+        desarEstatCampirme(campirmeCodiActiu, estat);
+
+        intentarSincronitzarCampirme(campirmeCodiActiu);
+
+    }
+
+    const tram = campirmeTramActiu;
+
+    if (tram) {
+
+        document.getElementById("campirmeMapaInfo").innerText =
+            tram.distanciaKm + " km · " +
+            (tram.desnivellNet >= 0 ? "+" : "") +
+            tram.desnivellNet + " m";
+
+    }
+
+    document.getElementById("botoHeArribatCampirme").style.display = "block";
+
+    // La Història es plega (igual que en activar la brúixola)
+    document.getElementById("campirmeHistoriaPanel").open = false;
+
+    const desti = trobarPuntCampirme(campirmeDestiActiu);
+
+    // GPS + rumb en marxa (també detecta l'arribada a 50 m)
+    if (!campirmeBruixolaObjectiu && desti) {
+        iniciarGuiaGPSCampirme(desti);
+    }
+
+    iniciarMapaCampirme(clau, campirmePuntActual, desti);
+
+    actualitzarBotoMapaCampirme();
+
+    document.getElementById("campirmeMapaVisor").scrollIntoView({ behavior: "smooth", block: "center" });
 
 }
 

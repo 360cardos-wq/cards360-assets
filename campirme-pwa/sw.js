@@ -14,7 +14,7 @@
  *             navegacions ignoren ?codi=... i serveixen index.html.
  *************************************************/
 
-const VERSIO = "2026-10-16.1";
+const VERSIO = "2026-10-16.2";
 
 const PREFIX_SHELL = "campirme-shell-";
 const PREFIX_MAPA = "campirme-mapa-";          // reservat pel mapa offline (no es toca en actualitzar)
@@ -29,6 +29,8 @@ const SHELL = [
     "app.js",
     "campirme-offline.js",
     "campirme-joc.js",
+    "campirme-mapa.js",
+    "mapa/ruta.json",
     "boot.js",
     "manifest.webmanifest",
     "icons/icon-192.png",
@@ -114,6 +116,38 @@ async function serveixMapa(req) {
 
 }
 
+async function serveixTesselaMapa(req) {
+
+    const noms = (await caches.keys()).filter(function (n) { return n.indexOf(PREFIX_MAPA) === 0; });
+
+    for (const n of noms) {
+        const r = await (await caches.open(n)).match(req.url);
+        if (r) { return r; }
+    }
+
+    try { return await fetch(req); }
+    catch (e) { return new Response("", { status: 404 }); }
+
+}
+
+async function serveixManifestMapa(req) {
+
+    try { return await fetch(req); }
+    catch (e) {
+
+        const noms = (await caches.keys()).filter(function (n) { return n.indexOf(PREFIX_MAPA) === 0; });
+
+        for (const n of noms) {
+            const r = await (await caches.open(n)).match(new URL(req.url).origin + new URL(req.url).pathname);
+            if (r) { return r; }
+        }
+
+        return new Response("", { status: 404 });
+
+    }
+
+}
+
 self.addEventListener("fetch", function (event) {
 
     const req = event.request;
@@ -123,6 +157,18 @@ self.addEventListener("fetch", function (event) {
     const url = new URL(req.url);
 
     if (url.origin === self.location.origin) {
+
+        // Cartografia offline: manifest (xarxa primer) i tessel·les (memòria cau primer)
+        if (/\/mapa\/manifest\.json$/.test(url.pathname)) {
+            event.respondWith(serveixManifestMapa(req));
+            return;
+        }
+
+        if (/\/mapa\/\d+\/\d+\/\d+\.(webp|png|jpe?g)$/.test(url.pathname)) {
+            event.respondWith(serveixTesselaMapa(req));
+            return;
+        }
+
         event.respondWith(serveixAplicacio(req));
         return;
     }

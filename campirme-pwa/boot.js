@@ -66,8 +66,37 @@ function entrarAlJoc() {
 let gateApp = false;
 let gatePaquet = false;
 
+let gateMapaOcupat = false;
+
 function actualitzarBotoComencar() {
-    $("gateComencar").disabled = !(gateApp && gatePaquet);
+    $("gateComencar").disabled = !(gateApp && gatePaquet && !gateMapaOcupat);
+}
+
+/* El mapa no bloqueja començar si no hi ha cartografia instal·lada o falla,
+   però sí mentre es descarrega (així no es surt amb la descàrrega a mitges). */
+function gateMapa() {
+
+    gateMapaOcupat = true;
+    actualitzarBotoComencar();
+    $("gMapaReintentar").style.display = "none";
+    marca("Mapa", "espera", "Descarregant... 0 %");
+
+    descarregarMapaCampirme(function (fet, total) {
+        marca("Mapa", "espera", "Descarregant... " + (total ? Math.round(fet * 100 / total) : 100) + " %");
+    })
+        .then(function (r) {
+            gateMapaOcupat = false;
+            marca("Mapa", r.estat === "ok" ? "ok" : (r.estat === "absent" ? "neutre" : "avis"), r.missatge);
+            if (r.estat === "error") { $("gMapaReintentar").style.display = "block"; }
+            actualitzarBotoComencar();
+        })
+        .catch(function (err) {
+            gateMapaOcupat = false;
+            marca("Mapa", "avis", String(err.message || err));
+            $("gMapaReintentar").style.display = "block";
+            actualitzarBotoComencar();
+        });
+
 }
 
 function gateAplicacio() {
@@ -197,8 +226,10 @@ function mostrarGate(codi) {
 
     gateAplicacio();
     gatePaquetContingut(codi);
+    gateMapa();
     gatePersistencia();
 
+    $("gMapaReintentar").onclick = gateMapa;
     $("gReintentar").onclick = function () { gatePaquetContingut(codi); };
     $("gBotoGps").onclick = gateActivarGPS;
     $("gBotoBrux").onclick = gateActivarBruixola;
