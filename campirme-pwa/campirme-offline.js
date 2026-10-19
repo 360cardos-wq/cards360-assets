@@ -139,6 +139,8 @@ function descarregarPaquetCampirme(codi, onOk, onError) {
 
                 paquet: resposta.contingut,
 
+                equip: resposta.equip || "",
+
                 progres: {
 
                     puntActual: resposta.puntActual || 1,

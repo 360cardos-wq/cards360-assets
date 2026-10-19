@@ -84,7 +84,7 @@ function configurarPartidaCampirme(estat) {
             icona: "🏔️"
         },
 
-        equip: estat.paquet.equip || estat.equip || "",
+        equip: estat.equip || estat.paquet.equip || "",
 
         inici: estat.progres.iniciat
 
@@ -93,6 +93,39 @@ function configurarPartidaCampirme(estat) {
     dibuixarHeader();
 
     iniciarCronometre();
+
+    // Estats desats abans d'aquesta versió no tenen el nom de l'equip:
+    // si hi ha cobertura, el recuperem un cop i el desem.
+    if (!estat.equip && navigator.onLine && campirmeCodiActiu) {
+
+        const codi = campirmeCodiActiu;
+
+        google.script.run
+            .withSuccessHandler(function(resposta) {
+
+                if (!resposta || !resposta.ok || !resposta.equip) {
+                    return;
+                }
+
+                const actual = llegirEstatCampirme(codi);
+
+                if (!actual) {
+                    return;
+                }
+
+                actual.equip = resposta.equip;
+                desarEstatCampirme(codi, actual);
+
+                if (partida) {
+                    partida.equip = resposta.equip;
+                    dibuixarHeader();
+                }
+
+            })
+            .withFailureHandler(function() {})
+            .apiObtenirPaquetOffline(codi);
+
+    }
 
 }
 
@@ -872,6 +905,54 @@ function campirmeFormatDistancia(metres) {
 
 }
 
+/*
+ * Desnivell que queda fins al destí, segons la posició GPS.
+ * Principal: altitud del destí − altitud GPS actual.
+ * Si el mòbil no dóna altitud fiable: es calcula proporcionalment
+ * a la distància que queda del tram (marcat amb "~").
+ */
+function pintarDesnivellRestantCampirme() {
+
+    const el = document.getElementById("campirmeBrxDesn");
+    const tram = campirmeTramActiu;
+
+    if (!el || !tram || campirmeModeLliure || !campirmeBruixolaPosicio || !campirmeBruixolaObjectiu) {
+        return;
+    }
+
+    const desti = trobarPuntCampirme(campirmeDestiActiu);
+    let restant = null;
+    let aprox = false;
+
+    if (campirmeBruixolaPosicio.alt !== null && campirmeBruixolaPosicio.alt !== undefined &&
+        desti && desti.altitud) {
+
+        restant = Math.round(Number(desti.altitud) - campirmeBruixolaPosicio.alt);
+
+    }
+    else if (tram.distanciaKm > 0) {
+
+        const d = distanciaMetresBruixola(
+            campirmeBruixolaPosicio.lat, campirmeBruixolaPosicio.lng,
+            campirmeBruixolaObjectiu.lat, campirmeBruixolaObjectiu.lon
+        );
+
+        const fraccio = Math.max(0, Math.min(1, d / (tram.distanciaKm * 1000)));
+
+        restant = Math.round(tram.desnivellNet * fraccio);
+        aprox = true;
+
+    }
+
+    if (restant === null) {
+        return;
+    }
+
+    el.textContent =
+        "⛰ " + (aprox ? "~" : "") + (restant >= 0 ? "+" : "") + restant + " m";
+
+}
+
 function pintarInfoGuiaCampirme() {
 
     if (campirmeModeLliure) {
@@ -932,6 +1013,8 @@ function pintarInfoGuiaCampirme() {
 
     }
 
+    pintarDesnivellRestantCampirme();
+
     // Text sota la brúixola: destí + avisos
     const linies = [];
 
@@ -989,7 +1072,13 @@ function iniciarGuiaGPSCampirme(puntDesti) {
 
             campirmeBruixolaPosicio = {
                 lat: pos.coords.latitude,
-                lng: pos.coords.longitude
+                lng: pos.coords.longitude,
+                alt: (typeof pos.coords.altitude === "number" &&
+                      !isNaN(pos.coords.altitude) &&
+                      (pos.coords.altitudeAccuracy === null ||
+                       pos.coords.altitudeAccuracy === undefined ||
+                       pos.coords.altitudeAccuracy <= 30))
+                    ? pos.coords.altitude : null
             };
 
             campirmeBruixolaPrecisioGPS = pos.coords.accuracy;

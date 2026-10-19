@@ -2683,7 +2683,29 @@ MÒBIL
 .campirme-dilema-linia .cdo-temps{color:#1a8a3c}
 .campirme-dilema-pastors .cdo-temps{color:#ffcfc2}
 .cdo-desc{font-size:var(--text-m);font-weight:600;line-height:1.35}
-.cdo-mapa{margin-top:8px;font-size:var(--text-m);font-weight:900}
+.cdo-mapa{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    margin-top:10px;
+    padding:12px 14px;
+    border-radius:12px;
+    background:rgba(0,0,0,.14);
+    border:1px solid rgba(0,0,0,.25);
+    font-size:var(--text-m);
+    font-weight:900;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-align:center;
+}
+.campirme-dilema-linia .cdo-mapa{background:rgba(141,23,18,.10);border-color:rgba(141,23,18,.45)}
+.campirme-dilema-pastors .cdo-mapa{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45)}
+.cdo-mapa span{display:inline !important}
+
+/* Separació entre els botons de la pantalla de la brúixola */
+#campirmeMapaWrap > button{margin-top:18px}
+#campirmeMapaWrap > button:first-of-type{margin-top:0}
 .campirme-dilema-nota{
     margin-top:26px;
     font-size:var(--text-m);
