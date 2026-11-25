@@ -515,10 +515,7 @@ function mostrarDilemaCampirme(punt) {
 
     document.getElementById("campirmeDilemaWrap").style.display = "block";
 
-    document.getElementById("campirmeDilemaTitol").innerText = d.titol || "";
-
-    document.getElementById("campirmeDilemaText").innerHTML =
-        convertirText(d.intro);
+    document.getElementById("campirmeDilemaTitol").innerText = "DILEMA";
 
     document.getElementById("campirmeDilemaNota").innerText = d.nota || "";
 

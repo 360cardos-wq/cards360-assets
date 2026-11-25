@@ -14,7 +14,7 @@
  *             navegacions ignoren ?codi=... i serveixen index.html.
  *************************************************/
 
-const VERSIO = "2026-11-25.1";
+const VERSIO = "2026-11-25.2";
 
 const PREFIX_SHELL = "campirme-shell-";
 const PREFIX_MAPA = "campirme-mapa-";          // reservat pel mapa offline (no es toca en actualitzar)
@@ -39,8 +39,7 @@ const SHELL = [
 
 // Recursos externs "millor esforç" (si fallen, no bloqueja la instal·lació)
 const EXTERNS = [
-    "https://raw.githubusercontent.com/360cardos-wq/cards360-assets/main/assets/header.jpeg",
-    "https://cdn.jsdelivr.net/gh/360cardos-wq/cards360-assets@main/assets/Campirme.jpg"
+    "https://raw.githubusercontent.com/360cardos-wq/cards360-assets/main/assets/header.jpeg"
 ];
 
 // Hosts de tessel·les del mapa offline (buit fins que s'implementi el mapa)
