@@ -178,30 +178,23 @@
 
         </div>
 
-        <div id="campirmeDilemaWrap" class="petjada-dilema" style="display:none;">
+        <div id="campirmeDilemaWrap" class="petjada-dilema cs-decision cs-decision--campirme" style="display:none;">
 
-            <div class="petjada-dilema-alerta">
-                <div class="petjada-dilema-alerta-icona">⚠️</div>
+            <div class="cs-decision__hero">
+                <div class="cs-decision__eyebrow"><span>DILEMA DE MUNTANYA</span><span class="cs-decision__sigil">✦</span><span>TURÓ VIALADA · 2.565 M</span></div>
+                <div class="cs-decision__title-row"><span class="cs-decision__mark">⌖</span><div><div class="cs-decision__overline">DOS SENDERS. UNA ELECCIÓ.</div><div id="campirmeDilemaTitol" class="campirme-dilema-titol"></div></div></div>
+                <div class="cs-decision__subtitle">LLEGIU EL TERRENY I TRIEU EL VOSTRE CAMÍ</div>
             </div>
 
-            <div class="petjada-dilema-banner">
-                <span class="petjada-dilema-titol">DILEMA</span>
-            </div>
+            <div class="cs-decision__content">
+            <div id="campirmeDilemaText" class="petjada-dilema-text cs-decision__story"></div>
 
-            <div class="petjada-dilema-subtitol">
-                <span>DECISIÓ IMPORTANT</span>
-            </div>
-
-            <div id="campirmeDilemaTitol" class="campirme-dilema-titol"></div>
-
-            <div id="campirmeDilemaText" class="petjada-dilema-text"></div>
-
-            <div class="petjada-dilema-botons">
+            <div class="petjada-dilema-botons cs-decision__choices">
 
                 <button
                     type="button"
                     id="botoAfrontarDilemaCampirme"
-                    class="campirme-dilema-opcio campirme-dilema-linia"
+                    class="campirme-dilema-opcio campirme-dilema-linia cs-decision__choice cs-decision__choice--primary"
                     onclick="afrontarDilemaCampirme()">
                     <span class="cdo-titol" id="cdoAfrontarTitol"></span>
                     <span class="cdo-dades" id="cdoAfrontarDades"></span>
@@ -213,7 +206,7 @@
                 <button
                     type="button"
                     id="botoRenunciarDilemaCampirme"
-                    class="campirme-dilema-opcio campirme-dilema-pastors"
+                    class="campirme-dilema-opcio campirme-dilema-pastors cs-decision__choice cs-decision__choice--secondary"
                     onclick="renunciarDilemaCampirme()">
                     <span class="cdo-titol" id="cdoRenunciarTitol"></span>
                     <span class="cdo-dades" id="cdoRenunciarDades"></span>
@@ -225,6 +218,7 @@
             </div>
 
             <div id="campirmeDilemaNota" class="campirme-dilema-nota"></div>
+            </div>
 
         </div>
 
